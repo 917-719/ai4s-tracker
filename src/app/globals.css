@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-bg: 255 255 255;
+    --color-fg: 15 23 42;
+    --color-card: 248 250 252;
+    --color-border: 226 232 240;
+    --color-muted: 100 116 139;
+  }
+  .dark {
+    --color-bg: 15 23 42;
+    --color-fg: 226 232 240;
+    --color-card: 30 41 59;
+    --color-border: 51 65 85;
+    --color-muted: 148 163 184;
+  }
+  body {
+    @apply bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-200;
+  }
+}
+
+@layer components {
+  .score-high {
+    @apply bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400;
+  }
+  .score-mid {
+    @apply bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400;
+  }
+  .score-low {
+    @apply bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400;
+  }
+  .card {
+    @apply bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow;
+  }
+  .card-hero {
+    @apply card border-emerald-300 dark:border-emerald-700 bg-emerald-50/50 dark:bg-emerald-950/20 ring-1 ring-emerald-200 dark:ring-emerald-800;
+  }
+}
