@@ -1,7 +1,6 @@
 import { initDB, getDailyPicks, getDailyReport, getDailyRecommend } from "@/lib/db";
 import { ItemCard } from "@/components/ItemCard";
 import { DailyRecommend } from "@/components/DailyRecommend";
-import { TriggerButton } from "@/components/TriggerButton";
 import type { Item } from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic";
@@ -31,19 +30,22 @@ export default async function HomePage() {
         <div className="card text-center py-12">
           <p className="text-5xl mb-4">⏳</p>
           <p className="text-lg font-semibold text-slate-700 dark:text-slate-300">
-            昨日数据尚未生成
+            数据采集中...
           </p>
-          <p className="text-sm text-slate-400 mt-2 mb-2">
-            每日 0:00（北京时间）自动采集，早上起来直接看即可。
+          <p className="text-sm text-slate-400 mt-2 mb-4">
+            系统正在自动抓取并分析昨日热点，约需 2-3 分钟。
           </p>
-          <p className="text-sm text-slate-400 mb-4">
-            如果已经是上午仍未更新，可手动触发采集：
-          </p>
-          <TriggerButton />
+          <div className="flex items-center justify-center gap-2">
+            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm text-slate-400">本页每 30 秒自动刷新</span>
+          </div>
           <p className="text-xs text-slate-400 mt-4">
-            采集约需 1-3 分钟，点击后页面每 20 秒自动刷新直到数据就绪。
+            每日 0:00（北京时间）cron-job.org 自动触发，早上打开直接看。
           </p>
         </div>
+        <meta httpEquiv="refresh" content="30" />
+        {/* 客户端自动点火 */}
+        <AutoTrigger />
       </div>
     );
   }
