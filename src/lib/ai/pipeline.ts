@@ -1,5 +1,5 @@
 import { v4 as uuid } from "uuid";
-import { initDB, insertItems, setDailyRecommend, saveDailyReport, getTodayItems, getItemsInRange, savePeriodicReport, getStatsByDate } from "@/lib/db";
+import { initDB, insertItems, setDailyRecommend, saveDailyReport, getTodayItems, getItemsInRange, savePeriodicReport, getStatsByDate, clearDailyPicks, markDailyPicks, compressOldItems } from "@/lib/db";
 import { filterRelevance } from "./relevance-filter";
 import { scoreAndSummarize } from "./score-item";
 import { generateDailyReport } from "./daily-report";
@@ -112,21 +112,32 @@ export async function runDailyPipeline(fetchFn: () => Promise<IncomingItem[]>): 
       summary_cn: scoreResult.summary_cn,
       key_point: scoreResult.key_point,
       is_daily_recommended: 0,
+      is_favorited: 0,
+      is_daily_pick: 0,
+      is_compressed: 0,
       region: (r.region || src.region_hint || "global") as Item["region"],
     });
   }
   console.log(`[Pipeline] Scored & passed threshold: ${scoredItems.length}`);
 
-  // 5. 入库
-  console.log("[Pipeline] Step 4: Saving to DB...");
+  // 5. 入库（全部通过阈值的条目都存）
+  console.log("[Pipeline] Step 4: Saving all scored items to DB...");
   const saved = await insertItems(scoredItems);
   console.log(`[Pipeline] Saved ${saved} items`);
 
-  // 6. 日报生成
-  console.log("[Pipeline] Step 5: Generating daily report...");
+  // 6. 精选 50 条：分区域分领域独立排名
+  console.log("[Pipeline] Step 5: Selecting daily top 50...");
   const todayStr = new Date().toISOString().slice(0, 10);
+  await clearDailyPicks();
+  const pickIds = selectDailyTop50(scoredItems);
+  await markDailyPicks(pickIds);
+  console.log(`[Pipeline] Marked ${pickIds.length} daily picks`);
+
+  // 7. 日报生成（基于精选50条）
+  console.log("[Pipeline] Step 6: Generating daily report...");
   const todayItems = await getTodayItems(todayStr);
-  const report = await generateDailyReport(todayItems);
+  const pickItems = todayItems.filter((i) => i.is_daily_pick === 1);
+  const report = await generateDailyReport(pickItems.length > 0 ? pickItems : todayItems);
 
   // 设置推荐论文
   if (report.recommended_paper_id) {
@@ -143,6 +154,11 @@ export async function runDailyPipeline(fetchFn: () => Promise<IncomingItem[]>): 
     recommended_paper_id: report.recommended_paper_id,
   });
 
+  // 8. 清理旧数据（7天前非收藏、非精选条目压缩）
+  console.log("[Pipeline] Step 7: Compressing old items...");
+  const compressed = await compressOldItems(7);
+  console.log(`[Pipeline] Compressed ${compressed} old items`);
+
   return {
     fetched: rawItems.length,
     filtered: relevant.length,
@@ -150,6 +166,91 @@ export async function runDailyPipeline(fetchFn: () => Promise<IncomingItem[]>): 
     saved,
     reportSummary: report.summary,
   };
+}
+
+/** ===== 精选 50 条：分区域分领域独立排名 ===== */
+function selectDailyTop50(items: Omit<Item, "created_at">[]): string[] {
+  const cn = items.filter((i) => i.region === "cn");
+  const western = items.filter((i) => i.region !== "cn"); // western + global → 西方组
+
+  return [
+    ...selectByRegion(cn, 20),
+    ...selectByRegion(western, 30),
+  ];
+}
+
+function selectByRegion(
+  items: Omit<Item, "created_at">[],
+  quota: number
+): string[] {
+  if (items.length <= quota) {
+    // 不够 quota，全部入选
+    return items.map((i) => i.id!);
+  }
+
+  // 按 category 分组
+  const byCategory: Record<string, Omit<Item, "created_at">[]> = {};
+  for (const item of items) {
+    const cat = item.category || "AI4S";
+    if (!byCategory[cat]) byCategory[cat] = [];
+    byCategory[cat].push(item);
+  }
+
+  // 每个 category 内按 score 降序排列
+  for (const cat of Object.keys(byCategory)) {
+    byCategory[cat].sort((a, b) => b.score - a.score);
+  }
+
+  const categories = Object.keys(byCategory);
+  const total = items.length;
+
+  // 按比例分配名额（每类至少 1 条）
+  const allocations: Record<string, number> = {};
+  let allocated = 0;
+
+  for (const cat of categories) {
+    const count = byCategory[cat].length;
+    const share = Math.max(1, Math.round((count / total) * quota));
+    allocations[cat] = share;
+    allocated += share;
+  }
+
+  // 调整超出/不足的配额
+  let diff = allocated - quota;
+  // 按类别大小排序，从大的类别增减
+  const sortedBySize = [...categories].sort(
+    (a, b) => byCategory[b].length - byCategory[a].length
+  );
+
+  while (diff > 0) {
+    // 从最大的类别减
+    for (const cat of sortedBySize) {
+      if (diff <= 0) break;
+      if (allocations[cat] > 1) {
+        allocations[cat]--;
+        diff--;
+      }
+    }
+  }
+  while (diff < 0) {
+    // 给最大的类别加
+    for (const cat of sortedBySize) {
+      if (diff >= 0) break;
+      allocations[cat]++;
+      diff++;
+    }
+  }
+
+  // 从每个类别取 top N
+  const selected: string[] = [];
+  for (const cat of categories) {
+    const topN = byCategory[cat].slice(0, allocations[cat]);
+    for (const item of topN) {
+      if (item.id) selected.push(item.id);
+    }
+  }
+
+  return selected;
 }
 
 /** ===== 周报/月报生成管线 ===== */

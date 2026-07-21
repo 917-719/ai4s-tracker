@@ -3,12 +3,13 @@ import { ScoreBadge } from "./ScoreBadge";
 import { TypeTag } from "./TypeTag";
 import { CategoryTag } from "./CategoryTag";
 import { RegionTag } from "./RegionTag";
+import { FavoriteButton } from "./FavoriteButton";
 
 export function ItemCard({ item, showScore = true }: { item: Item; showScore?: boolean }) {
   return (
     <a
       href={`/item/${item.id}`}
-      className={`card block group ${item.is_daily_recommended ? "card-hero ring-2" : ""}`}
+      className={`card block group relative ${item.is_daily_recommended ? "card-hero ring-2" : ""}`}
     >
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="flex flex-wrap items-center gap-2">
@@ -22,6 +23,7 @@ export function ItemCard({ item, showScore = true }: { item: Item; showScore?: b
           ) : null}
           {showScore ? <ScoreBadge score={item.score} /> : null}
         </div>
+        <FavoriteButton itemId={item.id} isFavorited={item.is_favorited === 1} />
       </div>
 
       <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors leading-snug mb-2">
