@@ -14,7 +14,8 @@ function getPool(): Pool {
       connectionString,
       max: 10,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 5000,
+      connectionTimeoutMillis: 10000,
+      ssl: { rejectUnauthorized: false },
     });
   }
   return pool;
@@ -250,11 +251,12 @@ export async function getDailyPicks(dateStr?: string): Promise<Item[]> {
 /** ===== 定期清理 ===== */
 export async function compressOldItems(daysOld = 7): Promise<number> {
   const p = getPool();
+  const cutoff = new Date(Date.now() - daysOld * 86400000).toISOString().slice(0, 10);
   const r = await p.query(
     `UPDATE items SET description = '', summary_cn = '', score_breakdown = '{}',
       score_reason = '', key_point = '', is_compressed = 1
     WHERE is_favorited = 0 AND is_daily_pick = 0 AND is_compressed = 0
-      AND fetched_at::date < (NOW()::date - $1)`, [daysOld]
+      AND fetched_at::date < $1::date`, [cutoff]
   );
   return r.rowCount ?? 0;
 }
