@@ -1,6 +1,7 @@
 import { initDB, getDailyPicks, getDailyReport, getDailyRecommend } from "@/lib/db";
 import { ItemCard } from "@/components/ItemCard";
 import { DailyRecommend } from "@/components/DailyRecommend";
+import { AutoTrigger } from "@/components/AutoTrigger";
 import type { Item } from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic";
