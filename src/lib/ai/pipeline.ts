@@ -127,17 +127,18 @@ export async function runDailyPipeline(fetchFn: () => Promise<IncomingItem[]>): 
   const saved = await insertItems(scoredItems);
   console.log(`[Pipeline] Saved ${saved} items`);
 
-  // 6. 精选 50 条：分区域分领域独立排名
+  // 6. 精选 50 条：从数据库重新读取（确保 ID 一致），分区域分领域排名
   console.log("[Pipeline] Step 5: Selecting daily top 50...");
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const yesterdayStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
   await clearDailyPicks();
-  const pickIds = selectDailyTop50(scoredItems);
+  const dbItems = await getTodayItems(yesterdayStr);
+  const pickIds = selectDailyTop50(dbItems as unknown as Omit<Item, "created_at">[]);
   await markDailyPicks(pickIds);
   console.log(`[Pipeline] Marked ${pickIds.length} daily picks`);
 
   // 7. 日报生成（基于精选50条）
   console.log("[Pipeline] Step 6: Generating daily report...");
-  const todayItems = await getTodayItems(todayStr);
+  const todayItems = await getTodayItems(yesterdayStr);
   const pickItems = todayItems.filter((i) => i.is_daily_pick === 1);
   const report = await generateDailyReport(pickItems.length > 0 ? pickItems : todayItems);
 
@@ -147,10 +148,10 @@ export async function runDailyPipeline(fetchFn: () => Promise<IncomingItem[]>): 
   }
 
   // 保存日报
-  const stats = await getStatsByDate(todayStr);
+  const stats = await getStatsByDate(yesterdayStr);
   await saveDailyReport({
     id: uuid(),
-    date: todayStr,
+    date: yesterdayStr,
     summary: report.summary,
     stats: JSON.stringify(stats),
     recommended_paper_id: report.recommended_paper_id,
