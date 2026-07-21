@@ -7,16 +7,11 @@ export function TriggerButton() {
 
   async function handleClick() {
     setStatus("loading");
-    try {
-      await fetch("/api/cron/daily-fetch?secret=aB3xK9mW7qR2tY8n");
-    } catch {
-      // 即使请求失败也继续（后端可能已经在跑）
-    }
+    // 点火就跑，不等待返回（pipeline 要跑 2-3 分钟）
+    fetch("/api/cron/daily-fetch?secret=aB3xK9mW7qR2tY8n").catch(() => {});
     setStatus("done");
-    // 开始每 20 秒刷新，直到数据出现
-    setTimeout(() => {
-      location.reload();
-    }, 20000);
+    // 每 30 秒刷新一次，直到数据出现
+    setTimeout(() => location.reload(), 30000);
   }
 
   return (
@@ -34,7 +29,7 @@ export function TriggerButton() {
       >
         {status === "idle" && "🚀 开始采集昨日数据"}
         {status === "loading" && "⏳ 触发中..."}
-        {status === "done" && "✅ 已触发，页面每20秒自动刷新"}
+        {status === "done" && "✅ 已触发，30秒后自动刷新"}
       </button>
     </div>
   );
