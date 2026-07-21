@@ -6,10 +6,13 @@ let pool: Pool | null = null;
 
 function getPool(): Pool {
   if (!pool) {
-    const connectionString = process.env.DATABASE_URL;
-    if (!connectionString) {
+    const raw = process.env.DATABASE_URL;
+    if (!raw) {
       throw new Error("Missing DATABASE_URL environment variable");
     }
+    // Neon 兼容：强制使用 libpq 兼容 SSL 模式
+    const sep = raw.includes("?") ? "&" : "?";
+    const connectionString = raw + sep + "uselibpqcompat=true";
     pool = new Pool({
       connectionString,
       max: 10,
