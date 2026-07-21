@@ -91,7 +91,9 @@ export async function runDailyPipeline(fetchFn: () => Promise<IncomingItem[]>): 
     const minScore = r.content_type === "paper" ? 5 : 4;
     if (scoreResult.score < minScore) continue;
 
-    const now = new Date().toISOString();
+    // fetched_at 统一设为昨天（每天0点采集前一日内容）
+    const yesterday = new Date(Date.now() - 86400000);
+    const fetchDate = yesterday.toISOString();
     scoredItems.push({
       id: uuid(),
       title: src.title,
@@ -105,7 +107,7 @@ export async function runDailyPipeline(fetchFn: () => Promise<IncomingItem[]>): 
       journal_or_venue: src.journal_or_venue || "",
       source_quality: scoreResult.source_quality,
       published_at: src.published_at || "",
-      fetched_at: now,
+      fetched_at: fetchDate,
       score: scoreResult.score,
       score_breakdown: JSON.stringify(scoreResult.score_breakdown),
       score_reason: scoreResult.score_reason,
