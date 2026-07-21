@@ -3,26 +3,19 @@ import { runDailyPipeline } from "@/lib/ai/pipeline";
 import { fetchAllSources } from "@/lib/fetchers";
 
 export const runtime = "nodejs";
-export const maxDuration = 300; // 5 minutes max (Vercel Pro)
 
 export async function GET(req: Request) {
-  // cron 保护：支持 Authorization header 或 ?secret= 查询参数
-  const authHeader = req.headers.get("authorization");
   const url = new URL(req.url);
   const querySecret = url.searchParams.get("secret");
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}` && querySecret !== cronSecret) {
+  if (cronSecret && querySecret !== cronSecret) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  try {
-    const result = await runDailyPipeline(fetchAllSources);
-    return NextResponse.json(result);
-  } catch (err) {
-    console.error("[daily-fetch] Pipeline error:", err);
-    return NextResponse.json(
-      { error: String(err) },
-      { status: 500 }
-    );
-  }
+  // 立刻返回，pipeline 在后台异步跑（Railway 30s 超时解决）
+  runDailyPipeline(fetchAllSources)
+    .then((r) => console.log("[Pipeline] Done:", JSON.stringify(r)))
+    .catch((e) => console.error("[Pipeline] Error:", e));
+
+  return NextResponse.json({ status: "started", message: "Pipeline running in background, check back in 2-3 minutes" });
 }
