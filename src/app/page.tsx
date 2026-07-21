@@ -1,7 +1,6 @@
 import { initDB, getDailyPicks, getDailyReport, getDailyRecommend } from "@/lib/db";
 import { ItemCard } from "@/components/ItemCard";
 import { DailyRecommend } from "@/components/DailyRecommend";
-import { AutoRefresh } from "@/components/AutoRefresh";
 import type { Item } from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic";
@@ -47,7 +46,7 @@ export default async function HomePage() {
             <span className="text-sm text-slate-400">本页每 20 秒自动刷新</span>
           </div>
         </div>
-        <AutoRefresh intervalMs={20000} />
+        <meta httpEquiv="refresh" content="20" />
       </div>
     );
   }
