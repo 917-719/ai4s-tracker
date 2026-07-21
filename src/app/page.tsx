@@ -9,11 +9,13 @@ export const revalidate = 0;
 
 export default async function HomePage() {
   await initDB();
-  const todayStr = new Date().toISOString().slice(0, 10);
+  // 默认展示昨天的内容（每天0点更新前一日数据）
+  const yesterday = new Date(Date.now() - 86400000);
+  const dateStr = yesterday.toISOString().slice(0, 10);
   const [dailyPicks, report, recommended] = await Promise.all([
-    getDailyPicks(todayStr),
-    getDailyReport(todayStr),
-    getDailyRecommend(todayStr),
+    getDailyPicks(dateStr),
+    getDailyReport(dateStr),
+    getDailyRecommend(dateStr),
   ]);
 
   // 按区域分组
@@ -26,7 +28,7 @@ export default async function HomePage() {
       <div>
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-            📅 {todayStr} 日报
+            📅 {dateStr} 日报
           </h1>
         </div>
         <div className="card text-center py-12">
@@ -45,10 +47,10 @@ export default async function HomePage() {
       {/* 标题 */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-          📅 {todayStr} 日报
+          📅 {dateStr} 日报
         </h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          今日精选 {dailyPicks.length} 条（中国 {cnItems.length} · 西方 {westernItems.length}）
+          昨日精选 {dailyPicks.length} 条（中国 {cnItems.length} · 西方 {westernItems.length}）
         </p>
         {report?.summary ? (
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{report.summary}</p>
