@@ -7,6 +7,7 @@ interface RelevanceResult {
   content_type: string;
   category: string;
   region: string;
+  ai_role: string;
   reason: string;
 }
 
@@ -54,6 +55,7 @@ export async function filterRelevance(
           content_type: obj.content_type ?? obj.内容类型 ?? "paper",
           category: obj.category ?? obj.分类 ?? "AI4S",
           region: obj.region ?? obj.地域 ?? "global",
+          ai_role: obj.ai_role || "core-method",
           reason: obj.reason ?? obj.理由 ?? "",
         });
       } catch {

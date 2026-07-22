@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS items (
   is_favorited INTEGER DEFAULT 0,
   is_daily_pick INTEGER DEFAULT 0,
   is_compressed INTEGER DEFAULT 0,
+  ai_role TEXT DEFAULT 'core-method',
   region TEXT NOT NULL CHECK (region IN ('cn', 'western', 'global')),
   created_at TEXT NOT NULL DEFAULT NOW()::text
 );
@@ -33,6 +34,7 @@ CREATE TABLE IF NOT EXISTS items (
 ALTER TABLE items ADD COLUMN IF NOT EXISTS is_favorited INTEGER DEFAULT 0;
 ALTER TABLE items ADD COLUMN IF NOT EXISTS is_daily_pick INTEGER DEFAULT 0;
 ALTER TABLE items ADD COLUMN IF NOT EXISTS is_compressed INTEGER DEFAULT 0;
+ALTER TABLE items ADD COLUMN IF NOT EXISTS ai_role TEXT DEFAULT 'core-method';
 
 CREATE INDEX IF NOT EXISTS idx_items_fetched_at ON items(fetched_at);
 CREATE INDEX IF NOT EXISTS idx_items_content_type ON items(content_type);
@@ -92,6 +94,7 @@ export interface Item {
   is_favorited: number;
   is_daily_pick: number;
   is_compressed: number;
+  ai_role: string;
   region: "cn" | "western" | "global";
   created_at: string;
 }
