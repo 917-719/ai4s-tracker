@@ -14,18 +14,20 @@ export async function GET(req: Request) {
   // 清除旧标记
   await p.query("UPDATE items SET is_daily_pick = 0 WHERE fetched_at::date = $1::date", [dateStr]);
 
-  // 西方前30 + 中国前20，各自按 score 降序
+  // 西方前30 + 中国前20，各自按 score 降序（去重：排除前日已出现过的 URL）
   await p.query(`
-    UPDATE items SET is_daily_pick = 1
-    WHERE id IN (
-      SELECT id FROM items WHERE region <> 'cn' AND fetched_at::date = $1::date ORDER BY score DESC LIMIT 30
+    UPDATE items SET is_daily_pick = 1 WHERE id IN (
+      SELECT id FROM items WHERE region <> 'cn' AND fetched_at::date = $1::date
+        AND url NOT IN (SELECT url FROM items WHERE fetched_at::date < $1::date)
+      ORDER BY score DESC LIMIT 30
     )
   `, [dateStr]);
 
   await p.query(`
-    UPDATE items SET is_daily_pick = 1
-    WHERE id IN (
-      SELECT id FROM items WHERE region = 'cn' AND fetched_at::date = $1::date ORDER BY score DESC LIMIT 20
+    UPDATE items SET is_daily_pick = 1 WHERE id IN (
+      SELECT id FROM items WHERE region = 'cn' AND fetched_at::date = $1::date
+        AND url NOT IN (SELECT url FROM items WHERE fetched_at::date < $1::date)
+      ORDER BY score DESC LIMIT 20
     )
   `, [dateStr]);
 

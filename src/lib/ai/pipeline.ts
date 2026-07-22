@@ -132,13 +132,17 @@ export async function runDailyPipeline(fetchFn: () => Promise<IncomingItem[]>): 
   const yesterdayStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
   await clearDailyPicks();
   const p = getPool();
-  // 西方组 top 30
+  // 西方组 top 30（去重：排除前日已出现过的 URL，每天只展示全新内容）
   await p.query(`UPDATE items SET is_daily_pick = 1 WHERE id IN (
-    SELECT id FROM items WHERE region <> 'cn' AND fetched_at::date = $1::date ORDER BY score DESC LIMIT 30
+    SELECT id FROM items WHERE region <> 'cn' AND fetched_at::date = $1::date
+      AND url NOT IN (SELECT url FROM items WHERE fetched_at::date < $1::date)
+    ORDER BY score DESC LIMIT 30
   )`, [yesterdayStr]);
-  // 中国组 top 20
+  // 中国组 top 20（同样去重）
   await p.query(`UPDATE items SET is_daily_pick = 1 WHERE id IN (
-    SELECT id FROM items WHERE region = 'cn' AND fetched_at::date = $2::date ORDER BY score DESC LIMIT 20
+    SELECT id FROM items WHERE region = 'cn' AND fetched_at::date = $2::date
+      AND url NOT IN (SELECT url FROM items WHERE fetched_at::date < $2::date)
+    ORDER BY score DESC LIMIT 20
   )`, [yesterdayStr]);
   const pickCount = await p.query(
     "SELECT COUNT(*) as cnt FROM items WHERE is_daily_pick = 1 AND fetched_at::date = $1::date", [yesterdayStr]
