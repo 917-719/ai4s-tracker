@@ -1,4 +1,4 @@
-import { initDB, getDailyPicks, getDailyReport, getDailyRecommend } from "@/lib/db";
+import { initDB, getDailyPicks, getDailyReport, getDailyRecommend, getTodayItems } from "@/lib/db";
 import { ItemCard } from "@/components/ItemCard";
 import { DailyRecommend } from "@/components/DailyRecommend";
 import { AutoTrigger } from "@/components/AutoTrigger";
@@ -11,11 +11,17 @@ export default async function HomePage() {
   await initDB();
   const yesterday = new Date(Date.now() - 86400000);
   const dateStr = yesterday.toISOString().slice(0, 10);
-  const [dailyPicks, report, recommended] = await Promise.all([
+  let [dailyPicks, report, recommended] = await Promise.all([
     getDailyPicks(dateStr),
     getDailyReport(dateStr),
     getDailyRecommend(dateStr),
   ]);
+
+  // 兜底：没精选就展示高分条目（有多少显示多少）
+  if (dailyPicks.length === 0) {
+    const allItems = await getTodayItems(dateStr);
+    dailyPicks = allItems.slice(0, 50);
+  }
 
   const cnItems = dailyPicks.filter((i) => i.region === "cn");
   const westernItems = dailyPicks.filter((i) => i.region !== "cn");

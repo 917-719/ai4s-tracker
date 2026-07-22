@@ -1,5 +1,5 @@
 import { v4 as uuid } from "uuid";
-import { initDB, insertItems, setDailyRecommend, saveDailyReport, getTodayItems, getItemsInRange, savePeriodicReport, getStatsByDate, clearDailyPicks, markDailyPicks, compressOldItems } from "@/lib/db";
+import { initDB, insertItems, setDailyRecommend, saveDailyReport, getTodayItems, getItemsInRange, savePeriodicReport, getStatsByDate, clearDailyPicks, getPool, compressOldItems } from "@/lib/db";
 import { filterRelevance } from "./relevance-filter";
 import { scoreAndSummarize } from "./score-item";
 import { generateDailyReport } from "./daily-report";
@@ -127,14 +127,23 @@ export async function runDailyPipeline(fetchFn: () => Promise<IncomingItem[]>): 
   const saved = await insertItems(scoredItems);
   console.log(`[Pipeline] Saved ${saved} items`);
 
-  // 6. 精选 50 条：从数据库重新读取（确保 ID 一致），分区域分领域排名
-  console.log("[Pipeline] Step 5: Selecting daily top 50...");
+  // 6. 精选 50 条：直接用 SQL（避免 JS 内存 ID 不匹配 bug）
+  console.log("[Pipeline] Step 5: Selecting daily top 50 via SQL...");
   const yesterdayStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
   await clearDailyPicks();
-  const dbItems = await getTodayItems(yesterdayStr);
-  const pickIds = selectDailyTop50(dbItems as unknown as Omit<Item, "created_at">[]);
-  await markDailyPicks(pickIds);
-  console.log(`[Pipeline] Marked ${pickIds.length} daily picks`);
+  const p = getPool();
+  // 西方组 top 30
+  await p.query(`UPDATE items SET is_daily_pick = 1 WHERE id IN (
+    SELECT id FROM items WHERE region <> 'cn' AND fetched_at::date = $1::date ORDER BY score DESC LIMIT 30
+  )`, [yesterdayStr]);
+  // 中国组 top 20
+  await p.query(`UPDATE items SET is_daily_pick = 1 WHERE id IN (
+    SELECT id FROM items WHERE region = 'cn' AND fetched_at::date = $2::date ORDER BY score DESC LIMIT 20
+  )`, [yesterdayStr]);
+  const pickCount = await p.query(
+    "SELECT COUNT(*) as cnt FROM items WHERE is_daily_pick = 1 AND fetched_at::date = $1::date", [yesterdayStr]
+  );
+  console.log(`[Pipeline] Marked ${pickCount.rows[0]?.cnt ?? 0} daily picks`);
 
   // 7. 日报生成（基于精选50条）
   console.log("[Pipeline] Step 6: Generating daily report...");
@@ -171,90 +180,7 @@ export async function runDailyPipeline(fetchFn: () => Promise<IncomingItem[]>): 
   };
 }
 
-/** ===== 精选 50 条：分区域分领域独立排名 ===== */
-function selectDailyTop50(items: Omit<Item, "created_at">[]): string[] {
-  const cn = items.filter((i) => i.region === "cn");
-  const western = items.filter((i) => i.region !== "cn"); // western + global → 西方组
-
-  return [
-    ...selectByRegion(cn, 20),
-    ...selectByRegion(western, 30),
-  ];
-}
-
-function selectByRegion(
-  items: Omit<Item, "created_at">[],
-  quota: number
-): string[] {
-  if (items.length <= quota) {
-    // 不够 quota，全部入选
-    return items.map((i) => i.id!);
-  }
-
-  // 按 category 分组
-  const byCategory: Record<string, Omit<Item, "created_at">[]> = {};
-  for (const item of items) {
-    const cat = item.category || "AI4S";
-    if (!byCategory[cat]) byCategory[cat] = [];
-    byCategory[cat].push(item);
-  }
-
-  // 每个 category 内按 score 降序排列
-  for (const cat of Object.keys(byCategory)) {
-    byCategory[cat].sort((a, b) => b.score - a.score);
-  }
-
-  const categories = Object.keys(byCategory);
-  const total = items.length;
-
-  // 按比例分配名额（每类至少 1 条）
-  const allocations: Record<string, number> = {};
-  let allocated = 0;
-
-  for (const cat of categories) {
-    const count = byCategory[cat].length;
-    const share = Math.max(1, Math.round((count / total) * quota));
-    allocations[cat] = share;
-    allocated += share;
-  }
-
-  // 调整超出/不足的配额
-  let diff = allocated - quota;
-  // 按类别大小排序，从大的类别增减
-  const sortedBySize = [...categories].sort(
-    (a, b) => byCategory[b].length - byCategory[a].length
-  );
-
-  while (diff > 0) {
-    // 从最大的类别减
-    for (const cat of sortedBySize) {
-      if (diff <= 0) break;
-      if (allocations[cat] > 1) {
-        allocations[cat]--;
-        diff--;
-      }
-    }
-  }
-  while (diff < 0) {
-    // 给最大的类别加
-    for (const cat of sortedBySize) {
-      if (diff >= 0) break;
-      allocations[cat]++;
-      diff++;
-    }
-  }
-
-  // 从每个类别取 top N
-  const selected: string[] = [];
-  for (const cat of categories) {
-    const topN = byCategory[cat].slice(0, allocations[cat]);
-    for (const item of topN) {
-      if (item.id) selected.push(item.id);
-    }
-  }
-
-  return selected;
-}
+/** 精选逻辑已改为 SQL 实现，删除旧 JS 函数 */
 
 /** ===== 周报/月报生成管线 ===== */
 export async function runPeriodicPipeline(
