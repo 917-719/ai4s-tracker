@@ -1,4 +1,4 @@
-import { initDB, getDailyPicks, getDailyReport, getDailyRecommend, getTodayItems } from "@/lib/db";
+import { initDB, getDailyPicks, getDailyReport, getDailyRecommend, getTodayItems, getLatestDataDate } from "@/lib/db";
 import { ItemCard } from "@/components/ItemCard";
 import { DailyRecommend } from "@/components/DailyRecommend";
 import { beijingYesterday } from "@/lib/utils/date";
@@ -10,18 +10,30 @@ export const revalidate = 0;
 
 export default async function HomePage() {
   await initDB();
-  const dateStr = beijingYesterday();
-  let [dailyPicks, report, recommended] = await Promise.all([
-    getDailyPicks(dateStr),
-    getDailyReport(dateStr),
-    getDailyRecommend(dateStr),
-  ]);
+  // 找最新有数据的日期：优先昨天，不行就往前找
+  let dateStr = beijingYesterday();
+  let dailyPicks: Item[] = [];
 
-  // 兜底：没精选就展示高分条目（有多少显示多少）
+  // 先查昨天
+  dailyPicks = await getDailyPicks(dateStr);
+  // 昨天没数据就找最近的一天
+  if (dailyPicks.length === 0) {
+    const latest = await getLatestDataDate();
+    if (latest) {
+      dateStr = latest;
+      dailyPicks = await getDailyPicks(latest);
+    }
+  }
+  // 还是没精选就兜底展示高分条目
   if (dailyPicks.length === 0) {
     const allItems = await getTodayItems(dateStr);
     dailyPicks = allItems.slice(0, 50);
   }
+
+  const [report, recommended] = await Promise.all([
+    getDailyReport(dateStr),
+    getDailyRecommend(dateStr),
+  ]);
 
   const cnItems = dailyPicks.filter((i) => i.region === "cn");
   const westernItems = dailyPicks.filter((i) => i.region !== "cn");

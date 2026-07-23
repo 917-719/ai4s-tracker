@@ -27,14 +27,20 @@ export async function fetchAllSources(): Promise<IncomingItem[]> {
 
   for (const fetcher of fetchers) {
     if (!fetcher.enabled) continue;
-    try {
-      console.log(`[Fetcher] Starting: ${fetcher.name}`);
-      const items = await fetcher.fn();
-      console.log(`[Fetcher] ${fetcher.name}: ${items.length} items`);
-      results.push(items);
-    } catch (err) {
-      console.error(`[Fetcher] ${fetcher.name} failed:`, err);
+    let items: IncomingItem[] = [];
+    // 最多重试3次，应对网络抖动
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        console.log(`[Fetcher] Starting: ${fetcher.name} (attempt ${attempt})`);
+        items = await fetcher.fn();
+        break; // 成功则退出重试循环
+      } catch (err) {
+        console.error(`[Fetcher] ${fetcher.name} attempt ${attempt} failed:`, err);
+        if (attempt < 3) await new Promise(r => setTimeout(r, 2000 * attempt)); // 等待后重试
+      }
     }
+    console.log(`[Fetcher] ${fetcher.name}: ${items.length} items`);
+    if (items.length > 0) results.push(items);
   }
 
   // 合并并按 URL 去重

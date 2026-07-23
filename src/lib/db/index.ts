@@ -263,4 +263,14 @@ export async function compressOldItems(daysOld = 7): Promise<number> {
   return r.rowCount ?? 0;
 }
 
+/** 获取最近有数据的日期（往前找7天） */
+export async function getLatestDataDate(): Promise<string | null> {
+  const p = getPool();
+  const r = await p.query(
+    "SELECT fetched_at::date as d FROM items WHERE fetched_at::date >= (NOW()::date - 7) ORDER BY d DESC LIMIT 1"
+  );
+  if (r.rows.length === 0) return null;
+  return (r.rows[0].d as string).slice(0, 10);
+}
+
 export { getPool };
