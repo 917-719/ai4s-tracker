@@ -52,10 +52,10 @@ export async function filterRelevance(
         results.push({
           index: obj.index ?? obj.编号,
           relevant: obj.relevant ?? obj.相关 ?? false,
-          content_type: obj.content_type ?? obj.内容类型 ?? "paper",
-          category: obj.category ?? obj.分类 ?? "AI4S",
-          region: obj.region ?? obj.地域 ?? "global",
-          ai_role: obj.ai_role || "core-method",
+          content_type: normalizeContentType(obj.content_type ?? obj.内容类型),
+          category: normalizeCategory(obj.category ?? obj.分类),
+          region: normalizeRegion(obj.region ?? obj.地域),
+          ai_role: (obj.ai_role === "tool-application" ? "tool-application" : "core-method"),
           reason: obj.reason ?? obj.理由 ?? "",
         });
       } catch {
@@ -65,4 +65,18 @@ export async function filterRelevance(
   }
 
   return results;
+}
+
+/** 强制映射到 DB CHECK 约束允许的值 */
+function normalizeContentType(v: string) {
+  const map: Record<string, string> = { paper: "paper", "论文": "paper", "model-product": "model-product", "模型/产品": "model-product", "模型": "model-product", "institutional-news": "institutional-news", "机构/政策": "institutional-news", "机构": "institutional-news", "investment-news": "investment-news", "产业/投资": "investment-news", "投资": "investment-news" };
+  return map[v] || "paper";
+}
+function normalizeCategory(v: string) {
+  const valid = ["AI4S", "AI4SS", "AI4R"];
+  return valid.includes(v) ? v : "AI4S";
+}
+function normalizeRegion(v: string) {
+  const map: Record<string, string> = { cn: "cn", "中国": "cn", western: "western", "欧美": "western", global: "global", "全球": "global" };
+  return map[v] || "global";
 }
