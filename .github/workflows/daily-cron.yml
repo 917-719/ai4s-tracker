@@ -1,0 +1,36 @@
+name: Daily AI4S Pipeline
+
+on:
+  schedule:
+    # 北京时间 0:00 = UTC 16:00
+    - cron: "0 16 * * *"
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wake up Railway (free tier cold start)
+        run: |
+          echo "Waking up Railway..."
+          curl -s -o /dev/null -w "%{http_code}" "${{ secrets.APP_URL }}/api/debug" || true
+          sleep 30
+
+      - name: Trigger daily fetch
+        run: |
+          echo "Triggering pipeline..."
+          HTTP_CODE=$(curl -s -o /tmp/response.json -w "%{http_code}" "${{ secrets.APP_URL }}/api/cron/daily-fetch?secret=${{ secrets.CRON_SECRET }}")
+          echo "HTTP Status: $HTTP_CODE"
+          cat /tmp/response.json
+
+      - name: Wait for pipeline to complete
+        run: sleep 180
+
+      - name: Verify data exists
+        run: |
+          curl -s "${{ secrets.APP_URL }}/api/debug" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          counts = data.get('items_by_date', [])
+          print(f'Items by date: {counts}')
+          "
