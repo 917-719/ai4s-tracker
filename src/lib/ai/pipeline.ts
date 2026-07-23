@@ -4,6 +4,7 @@ import { filterRelevance } from "./relevance-filter";
 import { scoreAndSummarize } from "./score-item";
 import { generateDailyReport } from "./daily-report";
 import { generateLiteratureReview } from "./literature-review";
+import { beijingYesterday } from "@/lib/utils/date";
 import type { Item } from "@/lib/db/schema";
 
 interface IncomingItem {
@@ -55,7 +56,7 @@ export async function runDailyPipeline(fetchFn: () => Promise<IncomingItem[]>): 
     if (!scoreResult) continue;
     const minScore = r.content_type === "paper" ? 5 : 4;
     if (scoreResult.score < minScore) continue;
-    const yesterday = new Date(Date.now() - 86400000);
+    const yesterday = new Date(Date.now() + 8 * 3600000 - 86400000);
     scoredItems.push({
       id: uuid(), title: src.title, description: src.description, url: src.url,
       source_name: src.source_name, content_type: r.content_type as Item["content_type"],
@@ -79,7 +80,7 @@ export async function runDailyPipeline(fetchFn: () => Promise<IncomingItem[]>): 
 
   // 精选：SQL 实现（去重 + 精品优先 core-method > tool-application）
   console.log("[Pipeline] Step 5: Selecting daily top 50 via SQL...");
-  const yesterdayStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const yesterdayStr = beijingYesterday();
   await clearDailyPicks();
   const p = getPool();
   await p.query(`UPDATE items SET is_daily_pick = 1 WHERE id IN (

@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { getPool, initDB } from "@/lib/db";
+import { beijingYesterday } from "@/lib/utils/date";
 
 export const runtime = "nodejs";
 
-/** 补救端点：为指定日期标记精选 50 条（临时用，修复历史数据） */
+/** 补救端点：为指定日期标记精选 50 条 */
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const dateStr = url.searchParams.get("date") || new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const dateStr = url.searchParams.get("date") || beijingYesterday();
 
   await initDB();
   const p = getPool();

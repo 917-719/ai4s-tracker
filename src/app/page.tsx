@@ -1,6 +1,7 @@
 import { initDB, getDailyPicks, getDailyReport, getDailyRecommend, getTodayItems } from "@/lib/db";
 import { ItemCard } from "@/components/ItemCard";
 import { DailyRecommend } from "@/components/DailyRecommend";
+import { beijingYesterday } from "@/lib/utils/date";
 import { AutoTrigger } from "@/components/AutoTrigger";
 import type { Item } from "@/lib/db/schema";
 
@@ -9,8 +10,7 @@ export const revalidate = 0;
 
 export default async function HomePage() {
   await initDB();
-  const yesterday = new Date(Date.now() - 86400000);
-  const dateStr = yesterday.toISOString().slice(0, 10);
+  const dateStr = beijingYesterday();
   let [dailyPicks, report, recommended] = await Promise.all([
     getDailyPicks(dateStr),
     getDailyReport(dateStr),

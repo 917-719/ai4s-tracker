@@ -24,7 +24,7 @@ jobs:
           cat /tmp/response.json
 
       - name: Wait for pipeline to complete
-        run: sleep 180
+        run: sleep 300
 
       - name: Verify data exists
         run: |
