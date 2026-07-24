@@ -8,7 +8,7 @@ export function TriggerButton() {
   async function handleClick() {
     setStatus("loading");
     // 点火就跑，不等待返回（pipeline 要跑 2-3 分钟）
-    fetch("/api/cron/daily-fetch?secret=aB3xK9mW7qR2tY8n").catch(() => {});
+    fetch("/api/cron/daily-fetch").catch(() => {});
     setStatus("done");
     // 每 30 秒刷新一次，直到数据出现
     setTimeout(() => location.reload(), 30000);

@@ -4,15 +4,25 @@ import { fetchAllSources } from "@/lib/fetchers";
 
 export const runtime = "nodejs";
 
+let lastRun = 0; // 内存时间戳，防止短时间内重复触发
+
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const querySecret = url.searchParams.get("secret");
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && querySecret !== cronSecret) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const isAuthed = cronSecret && querySecret === cronSecret;
+
+  // 未认证请求（AutoTrigger）：6小时内已跑过就跳过，防止反复触发
+  if (!isAuthed) {
+    const cooldownMs = 6 * 3600000;
+    if (Date.now() - lastRun < cooldownMs) {
+      return NextResponse.json({ status: "skipped", message: `Pipeline already ran ${Math.round((Date.now() - lastRun) / 60000)} min ago` });
+    }
   }
 
-  // 立刻返回，pipeline 在后台异步跑（Railway 30s 超时解决）
+  lastRun = Date.now();
+
+  // 立刻返回，pipeline 在后台异步跑
   runDailyPipeline(fetchAllSources)
     .then((r) => console.log("[Pipeline] Done:", JSON.stringify(r)))
     .catch((e) => console.error("[Pipeline] Error:", e));

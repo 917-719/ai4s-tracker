@@ -2,16 +2,14 @@
 
 import { useEffect, useRef } from "react";
 
-/** 页面加载时自动触发 cron，点火就跑，不阻塞渲染 */
+/** 页面加载时自动触发 cron，无 secret，后端做防重复保护 */
 export function AutoTrigger() {
   const fired = useRef(false);
 
   useEffect(() => {
     if (fired.current) return;
     fired.current = true;
-
-    // 点火就跑，不等待
-    fetch("/api/cron/daily-fetch?secret=aB3xK9mW7qR2tY8n").catch(() => {});
+    fetch("/api/cron/daily-fetch").catch(() => {});
   }, []);
 
   return null;
